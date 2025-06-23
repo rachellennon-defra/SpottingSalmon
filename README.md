@@ -7,4 +7,6 @@ Traditional methods for monitoring fish populations are time-consuming, and reso
 
 ## 🛠 Features
 
-✅ Gzip extraction automation using Databricks notebooks
+✅ Gzip extraction automation
+
+✅ Video frame extraction as image automation

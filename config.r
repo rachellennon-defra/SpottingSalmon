@@ -13,7 +13,7 @@
 
 
 #with_dir("p:\\KM 2022\\km-01-2022")
-setwd("P:\\gaters")
+#setwd("P:\\gaters")
 f <- choose.files(multi=T,default = "*.csv",caption="Select raw data file")
 
 for(files_selected in f){

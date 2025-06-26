@@ -35,7 +35,7 @@ for(files_selected in files){
 
   # Run .rmd script with analysis parameters
   rmarkdown::render(
-    input = '~/SpottingSalmon/R script/testdoc3Feb21.rmd',
+    input = '~/SpottingSalmon/R script/testdoc3Feb21RL.rmd',
     quiet = TRUE,
     output_file = file.path(sel_dirname , sel_ofname)
     , params = list( # See notes below for parameter specifics

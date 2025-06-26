@@ -1,5 +1,5 @@
---- 
-title: "Daily Event Report (eval)" 
+---
+title: "Daily Event Report (eval)"
 author: "....."
 version: "10 Jan 2021"
 date: "`r Sys.Date()`"
@@ -26,74 +26,53 @@ params:
 knitr::opts_chunk$set(echo = FALSE)
  
 ```
+
 ## Daily Summary
 ```{r testdoc, echo=FALSE, warning=FALSE, message=FALSE}
-
-#setwd("C:\\Users\\User1\\Documents\\ghd")
-#setwd("p:\\KM 2022\\km-05-2022")
-#setwd("p:\\east stoke\\jul2021")
-#setwd("p:\\east stoke\\2021data")
-#setwd("p:\\GWfault data april 2022")
-#setwd("p:\\east stoke\\2022")
-shhh <- suppressPackageStartupMessages # It's a library, so shhh!
+## Set up ----
+# Load appropriate packages
+shhh <- suppressPackageStartupMessages # Supress library messages. 
 if(1){ #only load the first time
 library(rmarkdown)
-#library(plotly)    does not appear to be used any more
 library(knitr)
-#require(zoo)       does not appear to be used any more
 library(data.table)
 library(R.utils)
-#require(bit64)
 library(caTools)    # moving window tools
-#require(gtools)    # not used any more
-#require(pracma)    # findpeaks
-library(rowr)       # rollApply
+library(zoo)       # rollapply
 library(stringr)    # str_locate
-library(zoo)
 }
-#----
 
-# Start clean and choose file --------------
-
-#rm(list = ls())
-
-#filename <- choose.files(multi=T,default = "*.csv",caption="Select raw data file")
-#for(filename in filenames){
-  #print(filename)
-#filename <- "p:\\KM 2022\\km-04-2022\\test-KMThu16-2022-04-03-10-19-35Z.csv.gz" #test
+## Start clean and choose file ----
+# Get file name from the parameter list
 filename <- file.path(params$directory,params$file)
-#print(filename)
-#opfn<-c(filename,".txt"
+
+# Create an empty dataframe
 opdf<-data.frame()
+
+# Get basename of file without extension 
 ofname<-gsub(".csv.gz","",paste(basename(filename)))
-#render(input="testdoc2.rmd",output_file=paste(ofname,".docx"))
-#render(input="testdoc2.Rmd", output_file = "mydoc.docx")
-#setwd("C:\\Users\\User1\\Documents\\ghd")
-#setwd(dirname(filename))
-# ----------------
-thisfilename<-"C:\\Users\\User1\\Documents\\ghd\\testdoc3Feb21.docx" #for renaming as last operation of this script
 
-# read file and remove first and last rows ----------------
+# Output of document at end of script
+thisfilename<-"~/SpottingSalmon/R script/testdoc3Feb21.docx" 
 
-#system.time(test1<-fread(filename,header = FALSE, sep = ",", col.names=c("T","D","U"),blank.lines.skip = TRUE))
-# production units of sensor seem to have electrodes wired other way round
-# Normal way round for KMTH
+# Handle re-ordering of electrode formation if inverted
 message("Reading file..", appendLF = FALSE)
-stim<-proc.time()
 if(params$invertelectrodes){# East stoke
       test1<-fread(filename,header = FALSE, sep = ",",col.names=c("T","D","U"),blank.lines.skip = TRUE,colClasses = c("numeric","numeric","numeric"))
   }else{ #Knapp mill TH
   test1<-fread(filename,header = FALSE, sep = ",",col.names=c("T","U","D"),blank.lines.skip = TRUE,colClasses = c("numeric","numeric","numeric"),showProgress = T)
-}
-# Data clean start =========================================
+  }
+
+# Data clean ----
 etim<-proc.time()
 message(paste(toString(round(etim[3]-stim[3],1)),"s.."), appendLF = FALSE)
 message("Signal processing..", appendLF = FALSE)
 
-stim<-proc.time()
+# Get lengths
 slen<-length(test1$T)
 elen<-slen
-  #summary(test1)
+
+# Make sure all electrode data is read as numeric, change if not. 
   if(!is.numeric(test1$U)){
     #print("Fixing U misread...")
     test1$U<-as.numeric(test1$U)
@@ -106,187 +85,164 @@ elen<-slen
     #print("Fixing T misread...")
     test1$T<-as.numeric(test1$T)
     }
-  #summary(test1)
+
+# Get rid of any NAs
   test1<-na.omit(test1)
+# Get length again
   nalen<-length(test1$T)
+# Set FALSEhoods
   plotrugpointsU<-FALSE
   plotrugpointsD<-FALSE
-  #print(paste("*start len ",(slen))) #outputs to doc not console
   
-  
-  #summary(test1)
-  
-  if(F){ #min(test1$U)<0.5*mean(test1$U)
-        #print("Removing U misread outliers...")
-        Q1<-quantile(test1$U,0.25)
-        Q3<-quantile(test1$U,0.75)
-        IQR<-IQR(test1$U)
-        outliersU<-which((test1$U< (Q1 - 4*IQR))| (test1$U> (Q3 + 4*IQR)))
-        test1 <- subset(test1, test1$U> (Q1 - 4*IQR) & test1$U< (Q3 + 4*IQR))
-        plotrugpointsU<-TRUE
-        #summary(test1)
-  }
-  
-  if(F){ # min(test1$D)<0.5*mean(test1$D)
-        #print("Removing D misread outliers...")
-        Q1<-quantile(test1$D,0.25)
-        Q3<-quantile(test1$D,0.75)
-        IQR<-IQR(test1$D)
-        outliersD<-which((test1$D< (Q1 - 2*IQR))| (test1$D> (Q3 + 2*IQR)))
-        test1 <- subset(test1, test1$D> (Q1 - 2*IQR) & test1$D< (Q3 + 2*IQR))
-        plotrugpointsD<-TRUE
-        #summary(test1)
-  }
-  
-  #---- alternative data cleaning option ---------------
-  #     might not work if the background resistance changed a lot during a day
-  test1<-tail(test1,-2)# remove first
-  test1<-head(test1,-2)#remove last
+# Removes first and last two rows, this is where read errors most often sit causing downstream error. 
+  test1<-tail(test1,-2)
+  test1<-head(test1,-2)
+
+# Get the median values of the absolute upstream U and absolute downstream D electrodes. 
   medU<-median(test1$U)
   medD<-median(test1$D)
-  checkDchan<-test1$D[10] # checks for data in second channel to see if WB interface or GS1
-  if(checkDchan<10){minofband<-medU}else{minofband<-min(medU,medD)}
-  
-  #minofband<-medU #for wb data to take account of 0 channel
-  maxofband<-max(medU,medD)
-  band<-(maxofband+600)-(minofband-600)
-  band<-1200
-  #test1<-subset(test1,abs(test1$D-test1$U)<band) #corrupt or mis read row remover pre-gaters
-  #test1<-subset(test1,abs(test1$U-medU)<band) #corrupt or mis read row remover Gaters
-  test1<-subset(test1,((test1$U>1)&(test1$U<(65000))))
-  #print(etim-stim)
-  #print(paste(" na rows removed:",slen-nalen))
-  elen<-length(test1$T)
-  #print(paste("*end   len ",(elen)))
-  #print(paste("start rows:",slen,"   final rows:",elen,"   mis-read rows removed:",slen-elen))
-  # Data clean end =========================================
 
-
-st<-Sys.time() # start time
-#test <- test1[seq(1, nrow(test1), 1), ]# subsample for speed - used in early testing
-test<-test1
-#test<-subset(test,test$D>18000 & test$D<22000)
-#test<-subset(test,test$U>18000 & test$U<22000)
-#test<-test[-which(diff(test$U)>1000)-1] #strip rows with miss read values
-#test<-test[-which((test$U>12000)|(test$U<1000))] # strip out of range rows
-
-#print(max(test$U))
-#print(min(test$U))
-#print(max(test$D))
-#print(min(test$D))
-
-
-#print("checkUchan")
-#print(checkUchan)
-
-
-# useful function for scaling input
-Mode <- function(x) {
-  ux <- unique(x)
-  ux[which.max(tabulate(match(x, ux)))]
+# Checks what values are in the second channel, if 0 (i.e. less than 10) then it is the WB interface. If more than 0, it is the GS1
+  checkDchan<-test1$D[10] 
+# If its the WB interface (only data in 1 channel) then just use median of 1st channel (i.e. difference between U and D)
+if (checkDchan < 10) {
+  minofband <- medU
+# If its the GS1 then use the lower of the U or D electrode
+} else {
+  minofband <- min(medU, medD)
 }
-#print("mode ")
-#system.time(print(Mode(test$U)))
+
+  # Set upper bound based on max median value of U or D  
+  maxofband<-max(medU,medD)
+  
+  # Set band at 1200 units
+  band<-1200
+
+  # Values must be more than 1 and less than 65000 to be real. Remove if not in this range. 
+  test1<-subset(test1,((test1$U>1)&(test1$U<(65000))))
+  
+  # Get length (again) of cleaned data
+  elen<-length(test1$T)
+
+## Get starting values ----
+# System start time
+st<-Sys.time() 
+  
+# Rename test1 to test 
+test<-test1
+
+
+# Function to find highest frequency 
+Mode <- function(x) {
+  ux <- unique(x) # find unique values
+  ux[which.max(tabulate(match(x, ux)))] # return max value i.e. the highest frequency
+}
+
+# Give a tag to data 
 ctr_type<-"X"
-units_to_baseline<-median(test$U) #median used from april 23rd 2022 as mode seems to fail occasionally and median should be more robust than mean
-event_count<-c(EVT=0,CAL=0,SPK=0,LFN=0,NOC=0,STP=0) # for summary
+
+# Get median value of upstream electrode, providing a baseline that is robust to outliers. 
+units_to_baseline<-median(test$U) 
+
+# Count together all of the event types that could exist 
+event_count<-c(EVT=0,CAL=0,SPK=0,LFN=0,NOC=0,STP=0) 
+
+# Set ev to zero 
 ev<- 0
-# check for two data channels
-#checkDchan<-20 # if error in first section of file
-if(checkDchan<10){  
-    WB<-TRUE
-    prescale<-units_to_baseline%/%params$prescalefactor #originally 1000 for east stoke but events seemed small, great weir 110 maybe (800 works for Mkx and is used for logie) (200 for Logie) (currently using 800 for Mkx)
-    evplotYrange<-400 #NB 200 used for logie earlier
+
+# Check for data channel type 
+if(checkDchan<10){  # if it has no values in the D channel (as defined earlier)
+  # Then it is the WB counter type 
+    WB<-TRUE 
+    # Compute prescaling factor to normalise signal values. Return integer of division. prescale is median/prescale. 
+    prescale <-units_to_baseline %/% params$prescalefactor
+    # Set Y plot range to 400
+    evplotYrange<-400 
+    
   }else
   {
-    WB<-FALSE
-    prescale<-1
+    # When it is the GS1 sensor
+    WB<-FALSE 
+    # Don't need to scale the data
+    prescale<-1 
+     # Also set Y plot range to 400
     evplotYrange<-400
   } 
 
-
-    #WB<-FALSE
-    #prescale<-1 
+# Get rid of test1 as we are now using test
 rm(test1)
-# --------
 
-#-----------------
-
-
+# Set a timevector to R readable time
 timevect<-as.POSIXct(as.numeric(test$T)/1000, origin="1970-01-01",tz="UTC")
 
+## Generate low/high pass filters ----
+# Calculate samples per second 
+sps<-length(test$T)/((test$T[length(test$T)]-test$T[1])/1000) 
 
-# low and high pass filter windows ----------
-sps<-length(test$T)/((test$T[length(test$T)]-test$T[1])/1000) # samples per second
+# Set low pass filter to be ~12 seconds. Captures low frequency noise over longer window. i.e. ice. 
 lpf<-round(12*sps+1,0)
+
+# Make the lpf odd so it sits in the center of the data when passing. 
 if((lpf %% 2) == 0) { lpf<-lpf+1 } # to set odd window width
-if(WB==TRUE){hpf<-1}else{ #hpf<-1 # if WB and Logie as logie has internal smoothing before output
+
+# If we are using the WB system, there is already internal smoothing so we don't need to change it 
+if(WB==TRUE){hpf<-1
+} else { 
+  # If we are using GS1 then set hpf to 1/6th which captures high frequency noise over short periods. i.e. bubbles. 
   hpf<-round(sps/6,0 ) #40 - set divisor 10 for GW logie - was 6 --- normal for GS1
 }
-#hpf<-round(sps/6,0 ) #allow for mkx   *************
-#hpf<-1 # toexplore negative spikes
-#hpf<-round(sps/6,0 )
-if((hpf %% 2) == 0) { hpf<-hpf+1 } # to set odd window width
+# Make hpf odd
+if((hpf %% 2) == 0) { hpf<-hpf+1 } 
 
+# Make a break in the .rmd
 linetext<-"\n________________________________________________________________________"
 
-# calculate individual deviation from rolling mean subtract and plot
-if(0){
-    ddev<-runmean((runmed(test$D,k=hpf)-runmed(test$D,k=lpf)),k=9)
-    udev<-runmean((runmed(test$U,k=hpf)-runmed(test$U,k=lpf)),k=9)
-}else{
+## Individual deviation ----
 
-    ddev<-(runmean(test$D,k=hpf)-runmean(test$D,k=lpf))
-    udev<-(runmean(test$U,k=hpf)-runmean(test$U,k=lpf))
-}
+# Calculate mean deviation between hpf - lpf. Smooths out graph removing fast moving and slow moving objects. 
+ddev<-(runmean(test$D,k=hpf)-runmean(test$D,k=lpf))
+udev<-(runmean(test$U,k=hpf)-runmean(test$U,k=lpf))
 
-
+# Difference with sensor type
 if(WB==TRUE)
   {
-    Diff <- -(udev/prescale) # for wbaird at east stoke(mkx)
-    #hifrqThr <- 8 #if WB and Logie device
+    Diff <- -(udev/prescale) # Need to prescale the deviation and invert the sign. 
     hifrqThr <- 18 #if mkX 20 if wb and gunnislake logie - restormel WB picking up a few calibrations as event so switch to 18
     thr <- params$THR # for peakfind [15 for east stoke and 30 for km] as of 29-11-2021 ES changed to 35 but pre-scale changed
   }else
   {
-    Diff <-(ddev-udev) # for GS1
+    Diff <-(ddev-udev) # for GS1, the difference between the upstream deviation, and downstream deviation. 
     hifrqThr <- 20 #normal gs device
     thr <- params$THR # for peakfind [15 for east stoke and 30 for km] as of 29-11-2021 ES changed to 35 but pre-scale changed
   }
 
-DiffMad<-mad(Diff)
-#thr<-round(DiffMad*5,0)
+# Calculate the median of the absolute deviations from the median. 
+DiffMad<-mad(Diff) 
+
+
 # fast plot of ddev data as max and min per minute -----------
+# Obsolete
 AdaptiveThreshold<-FALSE
 nsd<-7
-lead<-20  # for detailed peakfind
-# normally around 30 for knapp mill turbine house when low noise
-# for east stoke on water baird 15 picks up small steps and 20 doesn't
-# prescale set for background %/%1000 so theoretically full scale is +/-1000 units
+lead<-20  
 
-#thr<-85 # for peakfind [15 for east stoke and 30 for km] as of 29-11-2021 ES changed to 35 but pre-scale changed
+# Number of peaks needs to be an event
 bipolarFind<-params$bpfind # False only needs to have one peak to detect and true requires both peaks
-# False for knapp mill 
-lowfrqThr<-1.3 # changed from 2.0 to 1.5 as a slow winter salmon at ES with GS1 was being classed as LFnoise
-# changed from 1.5 and 2.5 to pick up downstream debris nb. influenced by prescale on WB 
-# 1.0 used for most of 2020 at kmth ** continue using at kmth and used for 2021 km
-# east stoke 2.0 tends to remove the small steps in output but captures small down fish
-#hifrqThr<-20 #normal gs device
-#hifrqThr<-40 #if WB and Logie device
 
-etim<-proc.time()
-message(paste(toString(round(etim[3]-stim[3],1)),"s.."), appendLF = FALSE)
+# Removes everything below this threshold. 
+lowfrqThr<-1.3 
 
+# Get samples per minute
 spm<-floor(sps*60)
+
+# Put the difference between upsteam and downstream deviations into 1 minute bins
 salen<-floor(length(Diff)/spm)*spm
 tmatDF<-matrix(Diff[1:salen],ncol=spm,byrow=TRUE)
-#tmatDF<-matrix(Diff,ncol=sps*60,byrow=TRUE)
+
+# Calculate the minimum and maximum amplitude per minute and the MAD amplitude per minute
 tmatDFmax<-apply(tmatDF,1,max)
 tmatDFmin<-apply(tmatDF,1,min)
-tmatDFroll<-rollApply(tmatDF, width = 9, FUN = mad)
-#matU<-matrix(test$U*0.002,ncol=sps*60,byrow=TRUE)
-#matD<-matrix(test$D*0.002,ncol=sps*60,byrow=TRUE)
-
+tmatDFroll<-rollapply(tmatDF, width = 9, FUN = mad)
 
 ```
 The plot below is a quick overview of the conductance measurements made during the period of the file selected. It describes an envelope of the maximum and minimum measurements made for each minute of the record (blue).Where mis-read data is found in the file black "rug" marks are shown.
@@ -297,85 +253,82 @@ The sample rate is provided as SPS (samples per second).
 Times and max/min are given for each minute. Accurate event times are provided with each event plot (GMT).
 
 ```{r plot daily summary, echo=FALSE, fig.width=9.5, fig.height=6.5, warning=FALSE, message=FALSE}
-# fig.width increased from 8.5 to 9.5
+
+## Plot daily figure summary ----
+# Plot the maximum values 
 plot(tmatDFmax,type="l",xaxt="n",xlab="time",ylim=c(-400,400),col="blue",sub=paste("SPS = ",round(sps,digits=1)))
 grid(col="lightgrey")
 lines(tmatDFmin,type="l",col="blue")
-#testpoints<-seq(1,length(tmatDF),1)
-#points(testpoints,300,pch=21,col="black")
-#print(length(outliersU))
-#abline(v=outliersU/(sps*60),col="blue")
 
+# Show missing rows from data clean up
 if((slen-elen)>0){ # only draw missing rows if some were removed in data cleaning
     if(plotrugpointsU) points(outliersU/(sps*60),rep(400,length(outliersU)),col="black",pch="|",cex=0.5) #markers to indicate error times
     #need to fix this
     if(plotrugpointsD) points(outliersD/(sps*60),rep(-400,length(outliersD)),col="black",pch="|",cex=0.5)
   
 }
+
+## Obsolete - always false
 if(AdaptiveThreshold==TRUE){
     lines(tmatDFroll*nsd,type="l",col=91) # adaptive threshold
     points(which((tmatDFmax>(tmatDFroll*nsd))),tmatDFroll[which((tmatDFmax>(tmatDFroll*nsd)))]*(nsd+1),cex=1.5,pch=6,col="red")
     looksee<-which((tmatDFmax>(tmatDFroll*nsd)))
 } else 
-{
+  
+{ # Threshold limits of the rolling median difference plotted in bright green
   lines(tmatDFroll*nsd,type="l",col=91,lty=3) # adaptive threshold
+  # Parameter threshold limits
   abline(h=c(-thr,thr),lty=6,col="orange")
+  # What of our maximum values and minimum values exceed the threshold?
   looksee<-which((tmatDFmax>(thr))&(tmatDFmin<(-thr)))
   
-  #text(looksee+4,rep(thr,length.out=length(looksee))+4,labels=paste("<",round(tmatDFmax[looksee],0),":",round(tmatDFmin[looksee],0),"]",timevect[(looksee-1)*sps*60]),cex=0.65,adj=c(-0.05,-1),srt=45)
-  if(length(looksee)>0){
-    #points(looksee,rep(thr,length.out=length(looksee))+4,cex=1,pch=6,col="red")
+  if(length(looksee)>0){ # If any values to exceed the thresholds then 
+    # Plot them as a red dashed line
     abline(v=looksee,col="red",lty=3)
+    # And add a label to the red line of max and min amplitude in that minute 
     text(looksee+8,tmatDFmax[looksee]+4,labels=paste("<",round(tmatDFmax[looksee],0),":",round(tmatDFmin[looksee],0)),cex=0.65,adj=c(4.0,-1),srt=90)
+    # Also makes a log entry for the event with same info and time stamp in event-list
   eventlist<-paste(round(tmatDFmax[looksee],0),":",round(tmatDFmin[looksee],0)," ",timevect[(looksee-1)*sps*60])
-  #eventlist<-c(round(tmatDFmax[looksee],0),round(tmatDFmin[looksee],0),timevect[(looksee-1)*sps*60])
+
   }
 }
 
+# Add a dashed line at zero 
 abline(h=0,lty=2,col="red")
 
+# Add x-axis for 3 hour increments. 
 mattvect<-seq(1,length(timevect),by=round(sps*60*180,0))
-#axis(1,at=seq(1,length(tmatDFmax),by=180),timevect[mattvect],cex.axis=0.8,xaxt="n")
-
-#axis(3,at=seq(1,length(tmatDFmax),by=180),round(mattvect,0),xlab="index",cex.axis=0.8)
-
 tck <- axis(1, labels=FALSE)
 text(tck, par("usr")[3], labels=timevect[mattvect], srt=350, xpd=1,adj=c(0.5,3.5), cex=0.6)
-#---------------------------------------------------------
-# background plot raw
-if(0){
-      plot(matU,type="l",xaxt="n",xlab="time",col="red",ylim=c(min(matU)-10,max(matU)+10),sub=paste("SPS = ",round(sps,digits=1)))
-      grid(col="lightgrey")
-      lines(matD,type="l",col="blue")
-      tck <- axis(1, labels=FALSE)
-      text(tck, par("usr")[3], labels=timevect[mattvect], srt=350, xpd=1,adj=c(0.5,3.5), cex=0.6)
-}
-#---------------------------------------------------------
+
+## Detect potential fish events ----
 if(1){
+  # Outline length of day 
       startelement<-1 
       endelement<-length(test$D)
-      if(bipolarFind==TRUE){ #naming has got mixed up her for bipolarfind
-        if(WB==F){ #normal bp find
-          detect<-which((runmax(udev[startelement:endelement],k=sps*2,align="right")>thr)&(runmax(ddev[startelement:endelement],k=sps*2,align="right")>thr))
-        }else{ #WB bpfind
-          detect<-which((runmax(Diff[startelement:endelement],k=sps*2,align="right",endrule = "trim")>thr)&(runmax(-Diff[startelement:endelement],k=sps*2,align="right",endrule = "trim")>thr))
+      if(bipolarFind==TRUE){ # If we need two peaks to count as a fish event
+        if(WB==F){ # And it is not the WB sensor
+          # Go through 2 seconds of data and detects the maximum and if that exceeds the threshold at the upstream and downstream, adding to detect
+          detect<-which((runmax(udev[startelement:endelement],k=sps*2,align="right")>thr)&
+                          (runmax(ddev[startelement:endelement],k=sps*2,align="right")>thr))
+        }else{ # If it is a WB sensor (with the need for two peaks)
+          # Does the same as above, detecting an event when the + differentiation AND the - differentiation trigger the threshold
+          detect<-which((runmax(Diff[startelement:endelement],k=sps*2,align="right",endrule =
+                                  "trim")>thr)&(runmax(-Diff[startelement:endelement],
+                                                       k=sps*2,align="right",endrule = "trim")>thr))
           
         }
       }
-      else
+      else # When you only need to detect one peak. 
       {
+        # Does the same as above but can be triggered by the + differentiation OR the - differentiation
         detect<-which((runmax(Diff[startelement:endelement],k=sps*2,align="right")>thr)|(runmax(-Diff[startelement:endelement],k=sps*2,align="right")>thr))
       }
-      
+      ## RACHEL WE ARE HERE!!
       if(1){
-        #ddetect<-(diff(detect))
-        # only run compression if events detected 
-        # compression reduces consecutive sample points that meet the detection criteria to just one sample
         detect<-detect[-1] # remove first element as is 0
         detected<-0
-        #detected[-1]
         detectedend<-0
-        #detectedend[-1]
         if(length(detect>0)){
             cnt<- -1
             for(i in 1:(length(detect)-1)){
@@ -440,22 +393,10 @@ bgstringD<-paste(toString(round(2*mean(head(test$D,sps*60))),0),"->",toString(ro
 stable<-rbind(stable,c("D Start-end background conductance  (uS)",bgstringD))
 #stable<-rbind(stable,c("D Start and end background conductance  (uS)",toString(round(2*mean(head(test$D,sps*60))),0),":",toString(round(2*mean(tail(test$D,sps*60))))))
 
-kable(as.data.frame(stable),col.names = c("Name","Parameter"),table.attr = "style='width:60%;'",caption="Key parameters")
+kable(as.data.frame(stable),col.names = c("Name","Parameter"),table.attr2 = "style='width:60%;'",caption="Key parameters")
 
 ```
 
-
-```{r events, echo=FALSE, warning=FALSE, message=FALSE}
-#if(length(looksee)>0){(as.data.frame(eventlist))}
-
-if(length(detected)>0){
-  #evtable<-cbind(detected,timevect[detected])
-  #kable(as.data.frame(detected,timevect[detected]), table.attr = "style='width:60%;'") #was getting too big with noise
-  #stargazer(as.data.frame(detected,timevect[detected]))
-  }
-#linetext
-
-```
 
 ```{r eventplots, echo=FALSE, warning=FALSE, message=FALSE, fig.width=8.5,results='asis'}
 #Diffpks<-findpeaks(Diff,minpeakheight=thr,nups=lead,ndowns=lead,zero="-")
@@ -808,7 +749,7 @@ if(length(detected)>0){
       site_chan_len<-str_locate(ofname,"-202")[1]#first return position of -202 from the date in the file name
       site_chan_name<-substr(ofname,1,site_chan_len) # sub the string
       csv_filename<-str_replace_all(paste(site_chan_name,tstring,".csv")," ","") #remove any spaces
-      csv_filename<-paste(dirname(filename),"\\",csv_filename,sep="") #add directory again
+      #csv_filename<-paste(dirname(filename),"\\",csv_filename,sep="") #add directory again
       # add directory
       #csv_filename<-paste(dirname(filename),"\\",csv_filename) not working
       if(params$writetocsv==TRUE){ 

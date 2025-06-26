@@ -11,7 +11,7 @@ library(data.table)
 
 
 # Set working directory - editable
-setwd("~/SpottingSalmon")
+setwd("~/SpottingSalmon/R script")
 
 ## Get data ----
 # Set specific directory for files. 
@@ -26,19 +26,19 @@ for(files_selected in files){
   
   # Generate path to file directory. 
   sel_dirname <- dirname(files_selected)
+  sel_filename <- basename(files_selected)
   
   # Generate word document with same name as file. 
   sel_ofname <- gsub(" ", "", sub("\\.csv\\.gz$", "", basename(files_selected)))
   sel_ofname <- paste0(sel_ofname, ".docx")
   
 
-  # invert electrodes for east stoke [true] but not KM
-  
+  # Run .rmd script with analysis parameters
   rmarkdown::render(
-    input = '~/SpottingSalmon/testdoc3Feb21.rmd',
+    input = '~/SpottingSalmon/R script/testdoc3Feb21.rmd',
     quiet = TRUE,
     output_file = file.path(sel_dirname , sel_ofname)
-    , params = list(
+    , params = list( # See notes below for parameter specifics
       directory = sel_dirname
       , file      = sel_filename
       , THR = 30     #30-BP for KMTH 35 for ES-UniP 40 for gaters Gun 30 Rest1 20
@@ -46,6 +46,7 @@ for(files_selected in files){
       , writetocsv = T
       , invertelectrodes = F #KM=F ES=T GAT=F KMGW logie=F
       , prescalefactor = 1
+      
       # NB set hpf to 1 for logie only and set prescale divisor
       # Gaters 30 BP non inverted prescale divisor factor 800 - now optimum is 400 (dec 3 2022) with 15 threshold
       # KMTH 30 BP non-inverted prescale divisor 1

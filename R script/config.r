@@ -17,36 +17,36 @@
 f <- choose.files(multi=T,default = "*.csv",caption="Select raw data file")
 
 for(files_selected in f){
- 
-
+  
+  
   sel_dirname <- dirname(files_selected)
   sel_filename <- basename(files_selected)
   sel_ofname <- gsub(".csv.gz","",paste(basename(sel_filename),'.docx')) # make outfile name
   sel_ofname <- gsub(" ","",sel_ofname) #remove errant space
-
-
+  
+  
   # invert electrodes for east stoke [true] but not KM
   
   rmarkdown::render(
-      input = 'C:\\Users\\User1\\Documents\\ghd\\testdoc3Feb21.rmd',
-      quiet = TRUE,
-      output_file = file.path(sel_dirname , sel_ofname)
+    input = 'C:\\Users\\User1\\Documents\\ghd\\testdoc3Feb21.rmd',
+    quiet = TRUE,
+    output_file = file.path(sel_dirname , sel_ofname)
     , params = list(
-          directory = sel_dirname
-        , file      = sel_filename
-        , THR = 30     #30-BP for KMTH 35 for ES-UniP 40 for gaters Gun 30 Rest1 20
-        , bpfind = T
-        , writetocsv = T
-        , invertelectrodes = F #KM=F ES=T GAT=F KMGW logie=F
-        , prescalefactor = 1
-        # NB set hpf to 1 for logie only and set prescale divisor
-        # Gaters 30 BP non inverted prescale divisor factor 800 - now optimum is 400 (dec 3 2022) with 15 threshold
-        # KMTH 30 BP non-inverted prescale divisor 1
-        # KMGW ch17-20 20 BP non inverted prescale 200 (prescale in doc comes out as 100)
-        # Gun 30 BP non-inverted prescale divisor factor 200
-        # East stoke 30 BP non-inverted prescale divisor 1 NB params prescalefactor is ignored for GS1
-        # Rest1 20 BP non-inverted prescale divisor factor 200
-        )
+      directory = sel_dirname
+      , file      = sel_filename
+      , THR = 30     #30-BP for KMTH 35 for ES-UniP 40 for gaters Gun 30 Rest1 20
+      , bpfind = T
+      , writetocsv = T
+      , invertelectrodes = F #KM=F ES=T GAT=F KMGW logie=F
+      , prescalefactor = 1
+      # NB set hpf to 1 for logie only and set prescale divisor
+      # Gaters 30 BP non inverted prescale divisor factor 800 - now optimum is 400 (dec 3 2022) with 15 threshold
+      # KMTH 30 BP non-inverted prescale divisor 1
+      # KMGW ch17-20 20 BP non inverted prescale 200 (prescale in doc comes out as 100)
+      # Gun 30 BP non-inverted prescale divisor factor 200
+      # East stoke 30 BP non-inverted prescale divisor 1 NB params prescalefactor is ignored for GS1
+      # Rest1 20 BP non-inverted prescale divisor factor 200
+    )
   )
   print(event_count)
 }

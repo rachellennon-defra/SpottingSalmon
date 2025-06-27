@@ -325,7 +325,7 @@ if(1){
         detect<-which((runmax(Diff[startelement:endelement],k=sps*2,align="right")>thr)|(runmax(-Diff[startelement:endelement],k=sps*2,align="right")>thr))
       }
       
-      # Clean up the detect f
+      # Clean up the detect events, if they are consecutive then only keep one event (likely same fish)
       if(1){
         detect<-detect[-1] # remove first element as is 0
         detected<-0
@@ -341,18 +341,11 @@ if(1){
                   detectedend<-rbind(detectedend,detect[i])
                   }
             }
-            detectedend<-rbind(detectedend,tail(detect,n=1)) #doesn't seem to get used so might be dead wood
-            #detectedend[-1]
+            detectedend<-rbind(detectedend,tail(detect,n=1)) 
         }
       }
-      #abline(v=detected/(sps*60),col="red",lty=3)# mark detected eveent
-      #segments(detected/(sps*60),400,detected/(sps*60),380,col="blue")
-      
-      #faster r vector way to compress sequences 
-      #detected<-detect[diff(detect)>1]
-      
-      
-      # now remove leading zero in the vector
+
+      # remove leading zero in the vector
       detected<-detected[-1]
       detectedend<-detectedend[-2] 
       # debug message -- message(paste("detected[1]",detected[1]), appendLF = T)
@@ -369,17 +362,33 @@ if(1){
 
 
 ```{r summary, echo=FALSE, warning=FALSE, message=FALSE,results='asis'}
+# Make a summary table ----
+
+# Source of data (the current file)
 stable<-rbind(c("Source",basename(filename)))
+
+# Add threshold data 
 stable<-rbind(stable,c("Threshold", toString(thr)))
+
+# Add MAD parameter
 stable<-rbind(stable,c("Median Abs Dev ",toString(round(DiffMad,1))))
+
+# Redundant
 stable<-rbind(stable,c("Adaptive Thr", toString(AdaptiveThreshold)))
+
+# Number of samples and their duration 
 numsamples<-paste("Samples",format(trunc(as.numeric(length(timevect))), nsmall=0, big.mark=","))
 stable<-rbind(stable,c("Samples",numsamples))
 stable<-rbind(stable,c("Duration", paste(round((test$T[length(test$T)]-test$T[1])/1000,2),"s",round((test$T[length(test$T)]-test$T[1])/(1000*3600),3),"h")))
-#stable<-rbind(stable,paste("Duration =",round((test$T[length(test$T)]-test$T[1])/(1000*3600),3),"h"))
+
+#Start and end of events
 stable<-rbind(stable,c("Start",toString(timevect[1])))
 stable<-rbind(stable,c("Finish",toString(timevect[length(timevect)])))
+
+# If you need two peaks or one to be an event
 if(bipolarFind==FALSE){detMethod<-"Unipolar"} else {detMethod<-"Bipolar"}
+
+# Parameters
 stable<-rbind(stable,c("Detection method ",detMethod))
 stable<-rbind(stable,c("Low Freq Threshold ",toString(lowfrqThr)))
 stable<-rbind(stable,c("High Freq Threshold ",toString(hifrqThr)))
@@ -388,23 +397,27 @@ stable<-rbind(stable,c("HF Filter period (s)",toString(round(hpf/sps,2))))
 stable<-rbind(stable,c("Source Data ",if(WB){"Water Baird"}else{"GS1"}))
 stable<-rbind(stable,c("Pre-scale divisor ",toString(prescale))) 
 stable<-rbind(stable,c("Rows removed ",toString(slen-elen))) 
+
+# Upstream and downstream begining conductance and end conductance 
 bgstringU<-paste(toString(round(2*mean(head(test$U,sps*60))),0),"->",toString(round(2*mean(tail(test$U,sps*60))),0))
 stable<-rbind(stable,c("U Start-end background conductance  (uS)",bgstringU))
 bgstringD<-paste(toString(round(2*mean(head(test$D,sps*60))),0),"->",toString(round(2*mean(tail(test$D,sps*60))),0))
 stable<-rbind(stable,c("D Start-end background conductance  (uS)",bgstringD))
 #stable<-rbind(stable,c("D Start and end background conductance  (uS)",toString(round(2*mean(head(test$D,sps*60))),0),":",toString(round(2*mean(tail(test$D,sps*60))))))
 
+# Pasted below the summary graph for the day
 kable(as.data.frame(stable),col.names = c("Name","Parameter"),table.attr2 = "style='width:60%;'",caption="Key parameters")
 
 ```
 
 
 ```{r eventplots, echo=FALSE, warning=FALSE, message=FALSE, fig.width=8.5,results='asis'}
-#Diffpks<-findpeaks(Diff,minpeakheight=thr,nups=lead,ndowns=lead,zero="-")
-#csvevents<-data.frame(NULL)
-#colnames(csvevents) <- c( 'time', 'Up', 'dn')
+## Event plots ----
+# Initialise plot count  
 plotcount <- 0
 message(paste("detected=",length(detected)), appendLF = T)
+
+# If some events have been detected
 if(length(detected)>0){ # if some events have been detected
 evnt<-1
 eventlist<-NULL
@@ -794,4 +807,3 @@ message(paste("Corrupt rows removed ",(slen-elen)))
 message(paste("Output file name ",ofname))
 message(paste("Inclusion band ",minofband-600," to ",maxofband+600))
 ```
-

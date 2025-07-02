@@ -1,0 +1,719 @@
+# Load appropriate packages
+library(rmarkdown)
+library(knitr)
+library(data.table)
+library(R.utils)
+library(caTools)  
+library(zoo)       
+library(stringr)   
+
+## Start clean and choose file ----
+# Get file name from the parameter list
+filename <- file.path(params$directory,params$file)
+
+# Get basename of file without extension 
+ofname<-gsub(".csv.gz","",paste(basename(filename)))
+
+# Data clean ----
+# Get lengths
+slen<-length(test1$T)
+elen<-slen
+
+# Make sure all electrode data is read as numeric, change if not. 
+  if(!is.numeric(test1$U)){
+    #print("Fixing U misread...")
+    test1$U<-as.numeric(test1$U)
+    }
+  if(!is.numeric(test1$D)){
+    #print("Fixing D misread...")
+    test1$D<-as.numeric(test1$D)
+    }
+  if(!is.numeric(test1$T)){
+    #print("Fixing T misread...")
+    test1$T<-as.numeric(test1$T)
+    }
+
+# Get rid of any NAs
+  test1<-na.omit(test1)
+# Get length again
+  nalen<-length(test1$T)
+# Set FALSEhoods
+  plotrugpointsU<-FALSE
+  plotrugpointsD<-FALSE
+  
+# Removes first and last two rows, this is where read errors most often sit causing downstream error. 
+  test1<-tail(test1,-2)
+  test1<-head(test1,-2)
+
+# Get the median values of the absolute upstream U and absolute downstream D electrodes. 
+  medU<-median(test1$U)
+  medD<-median(test1$D)
+
+# Checks what values are in the second channel, if 0 (i.e. less than 10) then it is the WB interface. If more than 0, it is the GS1
+  checkDchan<-test1$D[10] 
+# If its the WB interface (only data in 1 channel) then just use median of 1st channel (i.e. difference between U and D)
+if (checkDchan < 10) {
+  minofband <- medU
+# If its the GS1 then use the lower of the U or D electrode
+} else {
+  minofband <- min(medU, medD)
+}
+
+  # Set upper bound based on max median value of U or D  
+  maxofband<-max(medU,medD)
+  
+  # Set band at 1200 units
+  band<-1200
+
+  # Values must be more than 1 and less than 65000 to be real. Remove if not in this range. 
+  test1<-subset(test1,((test1$U>1)&(test1$U<(65000))))
+  
+  # Get length (again) of cleaned data
+  elen<-length(test1$T)
+
+## Get starting values ----
+# System start time
+st<-Sys.time() 
+  
+# Rename test1 to test 
+test<-test1
+
+# Function to find highest frequency 
+Mode <- function(x) {
+  ux <- unique(x) # find unique values
+  ux[which.max(tabulate(match(x, ux)))] # return max value i.e. the highest frequency
+}
+
+# Get median value of upstream electrode, providing a baseline that is robust to outliers. 
+units_to_baseline<-median(test$U) 
+
+# Count together all of the event types that could exist 
+event_count<-c(EVT=0,CAL=0,SPK=0,LFN=0,NOC=0,STP=0) 
+
+# Check for data channel type 
+if(checkDchan<10){  # if it has no values in the D channel (as defined earlier)
+  # Then it is the WB counter type 
+    WB<-TRUE 
+    # Compute prescaling factor to normalise signal values. Return integer of division. prescale is median/prescale. 
+    prescale <-units_to_baseline %/% params$prescalefactor
+    # Set Y plot range to 400
+    evplotYrange<-400 
+    
+  }else
+  {
+    # When it is the GS1 sensor
+    WB<-FALSE 
+    # Don't need to scale the data
+    prescale<-1 
+     # Also set Y plot range to 400
+    evplotYrange<-400
+  } 
+
+# Get rid of test1 as we are now using test
+rm(test1)
+
+# Set a timevector to R readable time
+timevect<-as.POSIXct(as.numeric(test$T)/1000, origin="1970-01-01",tz="UTC")
+
+## Generate low/high pass filters ----
+# Calculate samples per second 
+sps<-length(test$T)/((test$T[length(test$T)]-test$T[1])/1000) 
+
+# Set low pass filter to be ~12 seconds. Captures low frequency noise over longer window. i.e. ice. 
+lpf<-round(12*sps+1,0)
+
+# Make the lpf odd so it sits in the center of the data when passing. 
+if((lpf %% 2) == 0) { lpf<-lpf+1 } # to set odd window width
+
+# If we are using the WB system, there is already internal smoothing so we don't need to change it 
+if(WB==TRUE){hpf<-1
+} else { 
+  # If we are using GS1 then set hpf to 1/6th which captures high frequency noise over short periods. i.e. bubbles. 
+  hpf<-round(sps/6,0 ) #40 - set divisor 10 for GW logie - was 6 --- normal for GS1
+}
+# Make hpf odd
+if((hpf %% 2) == 0) { hpf<-hpf+1 } 
+
+# Make a break in the .rmd
+linetext<-"\n________________________________________________________________________"
+
+## Individual deviation ----
+
+# Calculate mean deviation between hpf - lpf. Smooths out graph removing fast moving and slow moving objects. 
+ddev<-(runmean(test$D,k=hpf)-runmean(test$D,k=lpf))
+udev<-(runmean(test$U,k=hpf)-runmean(test$U,k=lpf))
+
+# Difference with sensor type
+if(WB==TRUE)
+  {
+    Diff <- -(udev/prescale) # Need to prescale the deviation and invert the sign. 
+    hifrqThr <- 18 #if mkX 20 if wb and gunnislake logie - restormel WB picking up a few calibrations as event so switch to 18
+    thr <- params$THR # for peakfind [15 for east stoke and 30 for km] as of 29-11-2021 ES changed to 35 but pre-scale changed
+  }else
+  {
+    Diff <-(ddev-udev) # for GS1, the difference between the upstream deviation, and downstream deviation. 
+    hifrqThr <- 20 #normal gs device
+    thr <- params$THR # for peakfind [15 for east stoke and 30 for km] as of 29-11-2021 ES changed to 35 but pre-scale changed
+  }
+
+# Calculate the median of the absolute deviations from the median. 
+DiffMad<-mad(Diff) 
+
+
+# fast plot of ddev data as max and min per minute -----------
+# Obsolete
+AdaptiveThreshold<-FALSE
+nsd<-7
+lead<-20  
+
+# Number of peaks needs to be an event
+bipolarFind<-params$bpfind # False only needs to have one peak to detect and true requires both peaks
+
+# Removes everything below this threshold. 
+lowfrqThr<-1.3 
+
+# Get samples per minute
+spm<-floor(sps*60)
+
+# Put the difference between upsteam and downstream deviations into 1 minute bins
+salen<-floor(length(Diff)/spm)*spm
+tmatDF<-matrix(Diff[1:salen],ncol=spm,byrow=TRUE)
+
+# Calculate the minimum and maximum amplitude per minute and the MAD amplitude per minute
+tmatDFmax<-apply(tmatDF,1,max)
+tmatDFmin<-apply(tmatDF,1,min)
+tmatDFroll<-rollapply(tmatDF, width = 9, FUN = mad)
+
+```
+The plot below is a quick overview of the conductance measurements made during the period of the file selected. It describes an envelope of the maximum and minimum measurements made for each minute of the record (blue).Where mis-read data is found in the file black "rug" marks are shown.
+Fish are indicated by "spikes" in conductance that are positive and negative and generally larger than ~40 (thr) units. Each event of sufficient magnitude is tagged with the event magnitude as the positive (upstream) and negative (downstream) components. Bipolar find requires both absolute "spikes" to be above threshold magnitude. Unipolar find only requires one of the "spikes" in the difference data to be larger than the threshold.
+
+The sample rate is provided as SPS (samples per second).
+
+Times and max/min are given for each minute. Accurate event times are provided with each event plot (GMT).
+
+```{r plot daily summary, echo=FALSE, fig.width=9.5, fig.height=6.5, warning=FALSE, message=FALSE}
+
+## Plot daily figure summary ----
+# Plot the maximum values 
+plot(tmatDFmax,type="l",xaxt="n",xlab="time",ylim=c(-400,400),col="blue",sub=paste("SPS = ",round(sps,digits=1)))
+grid(col="lightgrey")
+lines(tmatDFmin,type="l",col="blue")
+
+# Show missing rows from data clean up
+if((slen-elen)>0){ # only draw missing rows if some were removed in data cleaning
+    if(plotrugpointsU) points(outliersU/(sps*60),rep(400,length(outliersU)),col="black",pch="|",cex=0.5) #markers to indicate error times
+    #need to fix this
+    if(plotrugpointsD) points(outliersD/(sps*60),rep(-400,length(outliersD)),col="black",pch="|",cex=0.5)
+  
+}
+
+## Obsolete - always false
+if(AdaptiveThreshold==TRUE){
+    lines(tmatDFroll*nsd,type="l",col=91) # adaptive threshold
+    points(which((tmatDFmax>(tmatDFroll*nsd))),tmatDFroll[which((tmatDFmax>(tmatDFroll*nsd)))]*(nsd+1),cex=1.5,pch=6,col="red")
+    looksee<-which((tmatDFmax>(tmatDFroll*nsd)))
+} else 
+  
+{ # Threshold limits of the rolling median difference plotted in bright green
+  lines(tmatDFroll*nsd,type="l",col=91,lty=3) # adaptive threshold
+  # Parameter threshold limits
+  abline(h=c(-thr,thr),lty=6,col="orange")
+  # What of our maximum values and minimum values exceed the threshold?
+  looksee<-which((tmatDFmax>(thr))&(tmatDFmin<(-thr)))
+  
+  if(length(looksee)>0){ # If any values to exceed the thresholds then 
+    # Plot them as a red dashed line
+    abline(v=looksee,col="red",lty=3)
+    # And add a label to the red line of max and min amplitude in that minute 
+    text(looksee+8,tmatDFmax[looksee]+4,labels=paste("<",round(tmatDFmax[looksee],0),":",round(tmatDFmin[looksee],0)),cex=0.65,adj=c(4.0,-1),srt=90)
+    # Also makes a log entry for the event with same info and time stamp in event-list
+  eventlist<-paste(round(tmatDFmax[looksee],0),":",round(tmatDFmin[looksee],0)," ",timevect[(looksee-1)*sps*60])
+
+  }
+}
+
+# Add a dashed line at zero 
+abline(h=0,lty=2,col="red")
+
+# Add x-axis for 3 hour increments. 
+mattvect<-seq(1,length(timevect),by=round(sps*60*180,0))
+tck <- axis(1, labels=FALSE)
+text(tck, par("usr")[3], labels=timevect[mattvect], srt=350, xpd=1,adj=c(0.5,3.5), cex=0.6)
+
+## Detect potential fish events ----
+if(1){
+  # Outline length of day 
+      startelement<-1 
+      endelement<-length(test$D)
+      if(bipolarFind==TRUE){ # If we need two peaks to count as a fish event
+        if(WB==F){ # And it is not the WB sensor
+          # Go through 2 seconds of data and detects the maximum and if that exceeds the threshold at the upstream and downstream, adding to detect
+          detect<-which((runmax(udev[startelement:endelement],k=sps*2,align="right")>thr)&
+                          (runmax(ddev[startelement:endelement],k=sps*2,align="right")>thr))
+        }else{ # If it is a WB sensor (with the need for two peaks)
+          # Does the same as above, detecting an event when the + differentiation AND the - differentiation trigger the threshold
+          detect<-which((runmax(Diff[startelement:endelement],k=sps*2,align="right",endrule =
+                                  "trim")>thr)&(runmax(-Diff[startelement:endelement],
+                                                       k=sps*2,align="right",endrule = "trim")>thr))
+          
+        }
+      }
+      else # When you only need to detect one peak. 
+      {
+        # Does the same as above but can be triggered by the + differentiation OR the - differentiation
+        detect<-which((runmax(Diff[startelement:endelement],k=sps*2,align="right")>thr)|(runmax(-Diff[startelement:endelement],k=sps*2,align="right")>thr))
+      }
+      
+      # Clean up the detect events, if they are consecutive then only keep one event (likely same fish)
+      if(1){
+        detect<-detect[-1] # remove first element as is 0
+        detected<-0
+        detectedend<-0
+        if(length(detect>0)){
+            cnt<- -1
+            for(i in 1:(length(detect)-1)){
+                detect[1]<-0
+                if((detect[i+1]-detect[i])>1){
+                  cnt<-cnt+1
+                  #print(detect[i+1])
+                  detected<-rbind(detected,detect[i+1])
+                  detectedend<-rbind(detectedend,detect[i])
+                  }
+            }
+            detectedend<-rbind(detectedend,tail(detect,n=1)) 
+        }
+      }
+
+      # remove leading zero in the vector
+      detected<-detected[-1]
+      detectedend<-detectedend[-2] 
+      # debug message -- message(paste("detected[1]",detected[1]), appendLF = T)
+      message("summary plot done .." , appendLF = FALSE)
+      
+
+}
+```
+
+
+
+
+## Events
+
+
+```{r summary, echo=FALSE, warning=FALSE, message=FALSE,results='asis'}
+# Make a summary table ----
+
+# Source of data (the current file)
+stable<-rbind(c("Source",basename(filename)))
+
+# Add threshold data 
+stable<-rbind(stable,c("Threshold", toString(thr)))
+
+# Add MAD parameter
+stable<-rbind(stable,c("Median Abs Dev ",toString(round(DiffMad,1))))
+
+# Redundant
+stable<-rbind(stable,c("Adaptive Thr", toString(AdaptiveThreshold)))
+
+# Number of samples and their duration 
+numsamples<-paste("Samples",format(trunc(as.numeric(length(timevect))), nsmall=0, big.mark=","))
+stable<-rbind(stable,c("Samples",numsamples))
+stable<-rbind(stable,c("Duration", paste(round((test$T[length(test$T)]-test$T[1])/1000,2),"s",round((test$T[length(test$T)]-test$T[1])/(1000*3600),3),"h")))
+
+#Start and end of events
+stable<-rbind(stable,c("Start",toString(timevect[1])))
+stable<-rbind(stable,c("Finish",toString(timevect[length(timevect)])))
+
+# If you need two peaks or one to be an event
+if(bipolarFind==FALSE){detMethod<-"Unipolar"} else {detMethod<-"Bipolar"}
+
+# Parameters
+stable<-rbind(stable,c("Detection method ",detMethod))
+stable<-rbind(stable,c("Low Freq Threshold ",toString(lowfrqThr)))
+stable<-rbind(stable,c("High Freq Threshold ",toString(hifrqThr)))
+stable<-rbind(stable,c("LF Filter period (s)",toString(round(lpf/sps,2))))
+stable<-rbind(stable,c("HF Filter period (s)",toString(round(hpf/sps,2))))
+stable<-rbind(stable,c("Source Data ",if(WB){"Water Baird"}else{"GS1"}))
+stable<-rbind(stable,c("Pre-scale divisor ",toString(prescale))) 
+stable<-rbind(stable,c("Rows removed ",toString(slen-elen))) 
+
+# Upstream and downstream begining conductance and end conductance 
+bgstringU<-paste(toString(round(2*mean(head(test$U,sps*60))),0),"->",toString(round(2*mean(tail(test$U,sps*60))),0))
+stable<-rbind(stable,c("U Start-end background conductance  (uS)",bgstringU))
+bgstringD<-paste(toString(round(2*mean(head(test$D,sps*60))),0),"->",toString(round(2*mean(tail(test$D,sps*60))),0))
+stable<-rbind(stable,c("D Start-end background conductance  (uS)",bgstringD))
+#stable<-rbind(stable,c("D Start and end background conductance  (uS)",toString(round(2*mean(head(test$D,sps*60))),0),":",toString(round(2*mean(tail(test$D,sps*60))))))
+
+# Pasted below the summary graph for the day
+kable(as.data.frame(stable),col.names = c("Name","Parameter"),table.attr2 = "style='width:60%;'",caption="Key parameters")
+
+```
+
+
+```{r eventplots, echo=FALSE, warning=FALSE, message=FALSE, fig.width=8.5,results='asis'}
+## Event plots ----
+# Initialise plot count  
+plotcount <- 0
+message(paste("detected=",length(detected)), appendLF = T)
+
+# If some events have been detected
+if(length(detected)>0){ # if some events have been detected
+evnt<-1
+eventlist<-NULL
+
+secsdelay<-2 # allow this number of seconds at the start of the event
+
+for(evnt in 1:length(detected)){ #  loop through the detected events
+  minstartsec<-0
+  if(minstartsec>0){durationsec<-15}else{durationsec<-120}
+  if(detected[evnt]<(2.5*sps)){
+      startelement<-1L
+      endelement<-detected[evnt]+10*sps
+    }
+  if(detected[evnt]>(2*sps)){
+      startelement<-detected[evnt]-2*sps
+      endelement<-detected[evnt]+8*sps       # length(test$D)
+  } 
+  else 
+  {
+      startelement<-1L
+      endelement<-detected[evnt]+10*sps
+  }
+  if(endelement>(length(Diff)-11*sps)){
+      startelement<-length(Diff)-10*sps
+      endelement<-length(Diff)
+  }
+  uppkpos<-which(Diff[startelement:endelement]>thr)+startelement
+  uppktrans<-(diff(Diff[startelement:endelement]>thr)>0)
+  dnpkpos<-which(Diff[startelement:endelement]<(-thr))+startelement
+  dnpktrans<-(diff(Diff[startelement:endelement]<(-thr))>0)
+  uppkscount<-sum(uppktrans)
+  dnpkscount<-sum(dnpktrans)
+if(FALSE){ # this code seems to be damaging the Diff vector by introducing steps
+  if(Diff[startelement:endelement]>thr){ # scoring event pattern with 0,1,-1
+      bothpk<-1
+  }
+  else if(Diff[startelement:endelement]<-thr){
+      bothpk<-(-1)
+  }
+  else{
+      bothpk<-0
+  }
+}
+  #eventcentre<-min(c(which.max(Diff[startelement:endelement])+startelement,
+  #                           which.min(Diff[startelement:endelement])+startelement,
+  #                   which.max(udev[startelement:endelement])+startelement,
+  #                   which.max(ddev[startelement:endelement])+startelement))
+  #-------------
+  eventcentre<-min(c(which.max(Diff[startelement:endelement])+startelement,
+                             which.min(Diff[startelement:endelement])+startelement)) # find position of first peak or trough
+  
+  #eventcentre<-which.max(udev[startelement:endelement])+startelement
+  #------------
+  startelement<-eventcentre-(sps*2)# duration of event assessment changed from -4and +4s to -2 and +8s to take account of slow events
+  endelement<-eventcentre+(sps*8)
+  
+  #---------------
+  if(startelement<0){
+      startelement<-0
+      endelement<-detected[evnt]+10*sps
+  }
+  if(endelement>(length(Diff)-11*sps)){
+      startelement<-length(Diff)-10*sps
+      endelement<-length(Diff)
+    }
+  maxdvDF<-max(diff(Diff[startelement:endelement])) # measurement to find if spike or noise
+  mindvDF<-min(diff(Diff[startelement:endelement]))
+  eventmode<-mode(test$D[startelement:endelement])
+  startlevel<-round(median(Diff[startelement:startelement+(0.5*sps)]),0)
+  endlevel<-median(Diff[(startelement+7*sps):(startelement+8*sps)])
+  vshift<-abs(startlevel-endlevel)
+  evmax<-max(Diff[startelement:endelement])
+  evmin<-min(Diff[startelement:endelement])
+  if(WB==TRUE){
+      evup<-round(evmax-startlevel,0)
+      evdn<-round(startlevel-evmin,0)
+      if(((evup/evdn)>5)|((evdn/evup)>5)){
+         evstep<-TRUE
+      }
+      else
+      {
+        evstep<-FALSE
+      }
+  } 
+  
+  # plot if not slow noise
+  # removed eventmode>(0.9*units_to_baseline)
+  if(params$invertelectrodes){ #reverses colours if electrodes inverted
+      marker_up_col<-"red"
+      marker_dn_col<-"blue"
+  }else{
+      marker_up_col<-"blue"
+      marker_dn_col<-"red"
+  }
+  
+  #new position of abspkup and dn
+          
+  if(max(udev[startelement:endelement])>max(-udev[startelement:endelement]))
+          {
+              absupk<- round(max(udev[startelement:endelement]),0)
+          }
+          else
+          {
+              absupk<- -round(max(-udev[startelement:endelement]),0)
+          }
+        # this logic may be incorrect
+        
+  if(max(ddev[startelement:endelement])>max(-ddev[startelement:endelement]))
+          {
+              absdpk<-round(max(ddev[startelement:endelement]),0)
+          }
+          else
+          {
+              absdpk<- -round(max(-ddev[startelement:endelement]),0)
+          } 
+          
+          #absdpk<-round(max(ddev[startelement:endelement]),0)
+  
+  # needed for classifier
+  dmin<-round(min(Diff[startelement:endelement]),0)
+  dmax<-round(max(Diff[startelement:endelement]),0)
+  
+  # Classify events
+        if(WB==TRUE){ ## for WB interface
+          etype<-""
+          if ((dmax>thr)&(-dmin>thr)){etype<-"<##> EVENT  "}
+          if (maxdvDF>hifrqThr){ # potential spike or calibration - was =5 for both
+                if((uppkscount>=3)&(dnpkscount>=3)){ etype<-"<##> CALIB "}else{etype<-"<##> SPIKE  "}
+                }
+          if (maxdvDF<lowfrqThr){etype<-"<##> LF NOISE  "}
+          if (etype=="") {etype<-"<##> No classn "} #logic changed for default 27-07-2020
+          #if ((maxdvDF>lowfrqThr)&((-mindvDF)<lowfrqThr)){etype<-"<##> STEP  "} #not used since es moved to gs1
+          #if (evstep==TRUE){etype<-"<##> STEP**  "}
+        }else{ ## GS device
+          if ((absupk>thr)&(absdpk>thr)) {etype<-"<##> EVENT  "} #logic added to exclude small positive events 27-07-2020
+          else if (maxdvDF>hifrqThr){etype<-"<##> SPIKE  "}
+          else if (maxdvDF<lowfrqThr){etype<-"<##> LF NOISE  "}
+          else if ((absupk<0)|(absdpk<0)) {etype<-"<##> NON Fish  "}
+          else {etype<-"<##> No classn "} #logic changed for default 27-07-2020
+        }
+
+        if (etype=="<##> EVENT  "){event_count["EVT"] <- event_count["EVT"]+1}
+        if (etype=="<##> SPIKE  "){event_count["SPK"] <- event_count["SPK"]+1}
+        if (etype=="<##> LF NOISE  "){event_count["LFN"] <- event_count["LFN"]+1}
+        if (etype=="<##> No classn "){event_count["NOC"] <- event_count["NOC"]+1}
+        if (etype=="<##> CALIB "){event_count["CAL"] <- event_count["CAL"]+1}
+        if (etype=="<##> STEP  "){event_count["STP"] <- event_count["STP"]+1}
+        ev<- ev+1
+  
+  
+  
+  
+  
+  if(((maxdvDF>lowfrqThr)|(abs(mindvDF)>lowfrqThr))&(etype!="<##> CALIB ")){ 
+        plot(timevect[startelement:endelement],udev[startelement:endelement],type="n", xlab="",xaxt = "n",cex=0.01,ylim=c(-evplotYrange,evplotYrange),col="blue", ylab = "Differetial cond [uS/2]",lwd=2)
+        grid (NULL,NULL, lty = 6)
+        if(WB==FALSE){
+          lines(timevect[startelement:endelement],udev[startelement:endelement],col=marker_up_col,lwd=2)
+          lines(timevect[startelement:endelement],ddev[startelement:endelement],col=marker_dn_col,lwd=2)
+          #lines(timevect[startelement:endelement],-100+(Diff[startelement:endelement]),col="black",lwd=2,lty=1)
+          prod <- (udev[startelement:endelement]-ddev[startelement:endelement])
+          lines(timevect[startelement:endelement],-100+prod,col="grey40",lwd=2,lty=1)
+          #lines(timevect[startelement:endelement],-100+(ddev[startelement:endelement]-udev[startelement:endelement]),col="black",lwd=2,lty=1)
+          #V<-0.45/as.numeric(timevect[Upks[, 2]+startelement]-timevect[Dpks[, 2]+startelement])
+        }else
+          { #WB only has the one differential channel so only plot that
+          lines(timevect[startelement:endelement],(Diff[startelement:endelement]),col="black",lwd=2,lty=1)
+          points(timevect[uppkpos],rep(190,length(uppkpos)),col=marker_up_col,pch=".",cex=0.8)
+          points(timevect[dnpkpos],rep(180,length(dnpkpos)),col=marker_dn_col,pch=".",cex=0.8)
+          #points(timevect[startelement:endelement],bothpk*100,col="blue",pch="*",cex=0.8)
+          abline(h=thr,col="green",lty=1)
+          abline(h=-thr,col="green",lty=1)
+        }
+
+        abline(h=startlevel,col="blue",lty=2)
+        abline(h=endlevel,col="black",lty=2)
+        
+        axis.POSIXct(1,timevect[startelement:endelement],format = "%Y/%m/%d %H:%M:%OS1")
+        labs<-seq(1,(endelement-startelement),by=(endelement-startelement)/8) # time axis
+        
+        #axis.POSIXct(3,timevect[startelement:endelement],labels = round(labs+startelement,0))
+        #abline(h=thr,col="red",lty=3) # level threshold
+        
+        if(WB==FALSE){ #don't show for logie as too messy
+          #lines(timevect[startelement:(endelement-1)],diff(Diff[startelement:endelement])*15,col="green") # rate of change of Diff signal --- turned off for east stoke for the moment
+        }
+        #points(timevect[Apks[, 2]+startelement], Apks[,1]+8, pch=6, col="black",cex=1)
+        
+        if(params$invertelectrodes){
+            legend("bottom", legend=c("US", "DS", "Diff"),
+               col=c("red", "blue","grey40"), lwd=c(1,1,2), cex=0.6,box.lty=0,horiz=TRUE)
+        }else{
+            legend("bottom", legend=c("US", "DS", "Diff"),
+               col=c("red", "blue","grey40"), lwd=c(1,1,2), cex=0.6,box.lty=0,horiz=TRUE)
+        }
+        
+        dpk<-which.max(ddev[startelement:endelement])+startelement 
+        upk<-which.max(udev[startelement:endelement])+startelement
+
+        dupk<-which.max(Diff[startelement:endelement])+startelement
+        ddpk<-which.min(Diff[startelement:endelement])+startelement     
+
+        maxdvU<-max(diff(udev[startelement:endelement]))
+        maxdvD<-max(diff(ddev[startelement:endelement]))
+        
+      #added as a potential additional classifier
+        CVU<-sd(udev[startelement:endelement])/mean(udev[startelement:endelement])
+        CVD<-sd(ddev[startelement:endelement])/mean(ddev[startelement:endelement])
+        CVdiff<-sd(Diff[startelement:endelement])/mean(Diff[startelement:endelement])
+
+      # info labels on the plots
+        text(timevect[startelement+20],evplotYrange+30,paste("UPk# ",toString(uppkscount)),cex=0.7,col="red",srt=0,pos=1)# pk count
+        text(timevect[startelement+20],evplotYrange-10,paste("DPk# ",toString(dnpkscount)),cex=0.7,col="blue",srt=0,pos=1)# pk count
+        text(timevect[startelement],(evplotYrange*(7/8))-5,paste(toString(round(maxdvD,2))," "),cex=0.8,col="blue",srt=0,pos=1) # D
+        text(timevect[startelement],(evplotYrange*(6/8))-5,paste(toString(round(maxdvDF,2))," DF"),cex=0.8,col="black",srt=0,pos=1)
+        text(timevect[startelement+20],(evplotYrange*(5/8))-5,paste(toString(round(evmax-startlevel,0))," ",toString(round(startlevel-evmin,0))," ",toString(round(startlevel,0))),cex=0.8,col="black",srt=0,pos=1)
+        
+
+
+        #text(timevect[upk],-210,paste(timevect[posApks[,2]]),cex=0.7,col="black",srt=0,pos=1)
+        
+        #text(timevect[upk],-230,paste("Indx-",posApks[,2]),cex=0.7,col="black",srt=0,pos=1)
+        #qu<-quantile(udev[startelement:(startelement+500)],0.999,na.rm=TRUE) 
+        #sd3<-3*sd(udev[startelement:(startelement+50000)])
+        #title(cex.lab=0.75, sub=paste(" lpf ",toString(lpf)," hpf ",toString(hpf)," Pk",toString(round(udev[upk],1))," 99.9%ile ",toString(round(qu,2))," pk/q",toString(round(udev[upk]/qu,2))),cex=0.7,col="black")
+        #abline(h=qu,lty=6,col="grey")
+        #abline(h=-qu,lty=6,col="grey")
+        
+#######
+        
+        
+        if(WB==FALSE){
+          abline(v=timevect[dpk],col=marker_dn_col,lty=3)# mark detected event
+          abline(v=timevect[upk],col=marker_up_col,lty=3)# mark detected event
+          points(timevect[upk],evplotYrange,pch=6,cex=1,col=marker_up_col)   # triangle     
+          points(timevect[dpk],evplotYrange,pch=2,cex=1,col=marker_dn_col)   # triangle 
+          text(timevect[upk],evplotYrange-5,paste(toString(round(udev[upk],0))),cex=0.7,col=marker_up_col,srt=0,pos=1)
+          text(timevect[dpk],evplotYrange-5,paste(toString(round(ddev[dpk],0))),cex=0.7,col=marker_dn_col,srt=0,pos=1)
+          #text(timevect[eventcentre],evplotYrange-15,paste(toString(round(eventcentre,1)),cex=0.7,col="black",srt=0,pos=1)#diagnostic of event position in vector
+          
+        }
+        else
+        {
+          points(timevect[dupk],evplotYrange,pch=2,cex=1,col=marker_up_col)   # triangle     
+          points(timevect[ddpk],evplotYrange,pch=6,cex=1,col=marker_dn_col)   # triangle 
+          #text(timevect[dupk],evplotYrange-5,paste(toString(round(Diff[dupk],0))),cex=0.7,col="blue",srt=0,pos=1)
+          #text(timevect[ddpk],evplotYrange-5,paste(toString(round(Diff[ddpk],0))),cex=0.7,col="red",srt=0,pos=1)
+          text(timevect[dupk],evplotYrange-5,paste(toString(dmax)),cex=0.7,col=marker_up_col,srt=0,pos=1)
+          text(timevect[ddpk],evplotYrange-5,paste(toString(dmin)),cex=0.7,col=marker_dn_col,srt=0,pos=1)
+          abline(v=timevect[dupk],col="black",lty=3)# mark detected event
+          abline(v=timevect[ddpk],col="black",lty=3)# mark detected event
+        }
+        
+
+        #abline(v=timevect[eventcentre],col="green",lty=3)# mark detected event
+
+
+# where abspkup and abspkdn were 13-12-2022
+        
+        ########## where classifier was
+        
+        #message(paste("event",ev))
+        #print(paste(" lpf ",toString(lpf)," hpf ",toString(hpf)," Pk",toString(round(udev[upk],1))," 99.9%ile ",toString(round(qu,2))," pk/q",toString(round(udev[upk]/qu,2))))
+        #(upk-dpk)/1000
+        r <- as.POSIXct(round(range(timevect[startelement:endelement]), "hours"))
+        axis.POSIXct(1,timevect[startelement:endelement],format = "%Y/%m/%d %H:%M:%S",at = seq(r[1], r[2], by = "hour"),srt=-30)
+        axis(3,labels=round(seq(from=startelement,to=endelement,length.out=5),0),at=seq(from=startelement,to=endelement,length.out=5))
+        
+
+        evtmtext<-toString(timevect[eventcentre]) # event time text
+        bgup<-toString(round((median(test$U[startelement:endelement])),0)) #background conductance upstr section raw
+        bgdn<-toString(round((median(as.numeric(test$D[startelement:endelement]))),0)) #background conductance dstr section raw -- was raw x 2 to give units of micro Siemens
+        #bgdn<-"----"
+        
+        utext<-paste(toString(round(absupk,0))) #abs up pk
+      
+        dtext<-paste(toString(round(absdpk,0))) #abs dn pk
+        dutext<-paste(toString(dmax)) #diff up pk
+        ddtext<-paste(toString(dmin)) #diff dn pk
+        v<-0.45/as.numeric((timevect[dpk]-timevect[upk]))
+        dv<- -0.45/as.numeric((timevect[ddpk]-timevect[dupk]))
+        
+        vtext<-paste(toString(round(v,2)))
+        
+        if(WB==TRUE){ 
+          dv<- dv #this may need changing depending on the phase required
+          vtext<-"-.--"
+          utext<-"---"
+          dtext<-"---"
+          }
+        
+        DiffEvtTxt<-paste("[",toString(round(Diff[startelement:endelement]),0),"]")
+        dvtext<-paste(toString(round(dv,2)))
+        ttext<-paste(toString(round(1000*abs(timevect[upk]-timevect[dpk]),0)),"ms")
+        cat("\n")
+        cat("\n")
+        cat(etype,"  \n") #xcetype?
+        cat(paste("[",evnt,"] ",evtmtext," D",utext," U",dtext," d",ddtext," u",dutext,"  TT",ttext," V",vtext,"m/s"," dV",dvtext,"m/s"))
+        cat("  \n")
+        cat(paste(" bgU",bgup," bgD",bgdn," minDVDF",round(mindvDF,2),"maxDvDF ",round(maxdvDF,2)," CVU ",round(CVU,1)," CVD ",round(CVD,1)," CVDiff ",round(CVdiff,1)))
+        cat(paste("\n"))
+        
+        cat(linetext)
+        
+        # this line doesn't seem to be needed
+        #opdf<-rbind(opdf,paste(evtmtext," D",utext," U",dtext," d",ddtext," u",dutext,"  TT",ttext," V",vtext,"m/s"," dV",dvtext,"m/s"))
+        
+        
+        # estimate signal size at zero crossing
+        #---------------------------------------------------------------
+        #csvevents<-rbind(csvevents,c(evnt=evnt,time=evtmtext,Up=utext,Dn=dtext))
+        #now showing event centre not centrecrossing
+        #abline(v=timevect[eventcentre],lty=3,col=12)
+        #zx<-round(ddev[eventcentre],0)
+        #text(timevect[eventcentre],380,paste(toString(zx)),cex=0.8,col="dark green",srt=0,pos=1)
+        #timevect[eventcentre]
+        
+        
+        text(timevect[eventcentre],-(evplotYrange*(5/8)),paste("<",toString(timevect[eventcentre])),cex=0.8,col=12,srt=0,pos=4)
+        #-----------------------------------------------------------
+        evlist<-data.frame(basename(filename),evtmtext,utext,dtext,ddtext,dutext,vtext,dvtext,etype,DiffEvtTxt)
+        names(evlist)<-c("Filename","Time","Dpk","Upk","dpk","upk","dVel","Vel","Etype","EventDat")
+        eventlist<-rbind(eventlist,evlist)
+        cat('  \n') 
+        # end of normal plot
+        plotcount<-plotcount+1
+    }
+  }
+}
+
+if(length(detected)>0){
+      #kable(csvevents)
+      fn<-paste(ofname,".csv",sep="")
+      #write.csv(csvevents,fn)
+      #write.csv(opdf,fn)
+      #use below for csv output
+      #write.table(eventlist,fn,append=FALSE,sep=",") #day csv
+      #-------
+      # nb this is not robust for different site names etc
+      #
+      tstring<-toString(timevect[10]) # time from raw data start
+      tstring<-substr(tstring,1,7)
+      site_chan_len<-str_locate(ofname,"-202")[1]#first return position of -202 from the date in the file name
+      site_chan_name<-substr(ofname,1,site_chan_len) # sub the string
+      csv_filename<-str_replace_all(paste(site_chan_name,tstring,".csv")," ","") #remove any spaces
+      #csv_filename<-paste(dirname(filename),"\\",csv_filename,sep="") #add directory again
+      # add directory
+      #csv_filename<-paste(dirname(filename),"\\",csv_filename) not working
+      if(params$writetocsv==TRUE){ 
+        if (file.exists(csv_filename)) {#append csv
+          write.table(eventlist,csv_filename,append=TRUE,sep=",",col.names=F,row.names = T)
+        } else {
+          cat(paste("EvtNumPerFile","Filename","Time","Dpk","Upk","dpk","upk","dVel","Vel","Etype","EventDat\n",sep=","),file=csv_filename,append=F)
+          write.table(eventlist,csv_filename,append=TRUE,sep=",",col.names=F, row.names= T)
+          }
+      }
+}
+
+Sys.sleep(3)

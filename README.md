@@ -7,6 +7,6 @@ Traditional methods for monitoring fish populations are time-consuming, and reso
 
 ## 🛠 Features
 
-✅ Gzip extraction automation
-
-✅ Video frame extraction as image automation
+✅ Gzip extraction automation.
+✅ Labelling daily resistivty data with known fish events for training.
+✅ Video frame extraction as image automation.

@@ -28,3 +28,28 @@ SpottingSalmon/Video (Object Detection)
 ```
 
 
+
+## Workflow
+1. Data Preperation
+   - Extract video file frames as images and store in datalake
+   - Inspect images
+2. Data labelling
+   - Roboflow option
+   - AML option
+3. Object detection model training and evaluation
+   - YOLOv8 model
+   - YOLOv11 model
+5. Model prediction
+   - Script to use model to predict fish in new video data
+  
+
+   
+## Requirements
+- Databricks: Running the scripts requires a Databricks environment with access to the Datalake
+- Python version: Ensure you are using Python 3.6 and above
+- Fish videos: Make sure you have access to fish images through Datalake
+
+
+
+## Set-up Instructions
+### Step 1: Clone the repository 

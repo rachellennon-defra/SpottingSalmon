@@ -24,8 +24,8 @@ SpottingSalmon/Video (Object Detection)
 │
 ├── extract_video_frames.ipynb     # Python notebook for extracting .jpeg frames from .mp4 files
 ├── data_inspection.ipynb          # Python notebook for inspecting object detection labelled images for correct formatting prior to model training
-├── 2.0_YOLO.ipynb                 # Python notebook for training and evaluating YOLO models
-├── 2.1_YOLO_predict.ipynb         # Python notebook for using trained YOLO model to predict on raw data
+├── yolo_model_training.ipynb                 # Python notebook for training and evaluating YOLO models
+├── model_predict.ipynb         # Python notebook for using trained YOLO model to predict on raw data
 ├── yolo11n.pt                     # PyTorch ML model file from Ultralytics yolo version 11
 ├── yolov8n.pt                     # PyTorch ML model file from Ultralytics yolo version 8
 └── fish_500.zip                   # A zip file of addittional images of fish for data labelling stage 
@@ -57,13 +57,13 @@ SpottingSalmon/Video (Object Detection)
 
 
 ## Set-up Instructions
-#### Step 1: Clone the repository 
+### Step 1: Clone the repository 
 Follow cloning instructions from the [Dash Playbook](https://dap-prd2-connect.azure.defra.cloud/DASH-Playbook/) to git clone https://github.com/Defra-Data-Science-Centre-of-Excellence/SpottingSalmon.git
 
-#### Step 2: Image extraction 
+### Step 2: Image extraction 
 Run image extraction script to extract frames from video files for use in data labelling and model training steps.
 
-#### Step 3: Bounding box labelling 
+### Step 3: Bounding box labelling 
 Download extracted images to local PC and then follow either option 1 or option 2. Additional images for data labelling can be found in the repo in the fish_500.zip file. 
 
 ##### Option 1 - Roboflow
@@ -74,13 +74,13 @@ Ingest image frames to AML datastore (contact datascience@defra.gov.uk. for assi
 
 !Note! There is an option to continue a full workflow on AML by exporting labels as a data asset and using Auto ML to generate an object detection model and executing an endpoint, though previous experience with ML models and evaluation is advised here. Contact rachel.lennon@defra.gov.uk for more details. 
 
-#### Step 4: Train model
+### Step 4: Train model
 Open the yolo_model_training notebook and run the script to train and evaluate YOLOv8 and YOLOv11 models. 
 
-#### Step 5: Use models to predict fish
+### Step 5: Use models to predict fish
 Open the model_predict notebook to use trained model to generate fish counts from unseen videos.
 
-# Next Steps 
+## Next Steps 
 - Find path to  labelled files for direct access via Databricks.  
 - Generate an endpoint for use of final model through a GUI
 - Test of data labelling options within Databricks (i.e., LabelBox)

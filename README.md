@@ -28,7 +28,7 @@ SpottingSalmon/Video (Object Detection)
 ├── 2.1_YOLO_predict.ipynb         # Python notebook for using trained YOLO model to predict on raw data
 ├── yolo11n.pt                     # PyTorch ML model file from Ultralytics yolo version 11
 ├── yolov8n.pt                     # PyTorch ML model file from Ultralytics yolo version 8
-└── fish_500.zip                   # Addittional fish images for data labelling stage
+└── fish_500.zip                   # A zip file of addittional images of fish for data labelling stage 
 ```
 
 
@@ -64,7 +64,7 @@ Follow cloning instructions from the [Dash Playbook](https://dap-prd2-connect.az
 Run image extraction script to extract frames from video files for use in data labelling and model training steps.
 
 #### Step 3: Bounding box labelling 
-Download extracted images to local PC and then follow either option 1 or option 2. Additional images for data labelling in fish(500) file. 
+Download extracted images to local PC and then follow either option 1 or option 2. Additional images for data labelling can be found in the repo in the fish_500.zip file. 
 
 ##### Option 1 - Roboflow
 Use [Roboflow](https://roboflow.com/annotate) to generate bounding box labels around fish. It is recommended that you augment the data brightness (+/- 25%) and exposure (+/- 10%) to bolster dataset. Extract in YOLOv8 annotation format. Upload the files to Databricks File System (DBFS) using the Create > upload button and move to an appropriate directory (dbutils.fs.cp("local/path/to/labels", "dbfs:/mnt/lab/unrestricted/rachel/labels").

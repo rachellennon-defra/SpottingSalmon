@@ -22,13 +22,13 @@ Here is an overview of the most important files in the repository
 ```bash
 SpottingSalmon/Video (Object Detection)
 │
-├── extract_video_frames.ipynb     # Python notebook for extracting .jpeg frames from .mp4 files
-├── data_inspection.ipynb          # Python notebook for inspecting object detection labelled images for correct formatting prior to model training
-├── yolo_model_training.ipynb                 # Python notebook for training and evaluating YOLO models
-├── model_predict.ipynb         # Python notebook for using trained YOLO model to predict on raw data
+├── 1. extract_video_frames.ipynb     # Python notebook for extracting .jpeg frames from .mp4 files
+├── 2. data_inspection.ipynb          # Python notebook for inspecting object detection labelled images for correct formatting prior to model training
+├── 3. model_training.ipynb           # Python notebook for training and evaluating YOLO models
+├── 4. model_inference                # Python notebook for using trained YOLO model to predict on raw data
+├── 5. model_logging                  # Python notebook for logging and registering final model in MLFlow for serving endpoints
 ├── yolo11n.pt                     # PyTorch ML model file from Ultralytics yolo version 11
-├── yolov8n.pt                     # PyTorch ML model file from Ultralytics yolo version 8
-└── fish_500.zip                   # A zip file of addittional images of fish for data labelling stage 
+└── yolov8n.pt                     # PyTorch ML model file from Ultralytics yolo version 8
 ```
 
 
@@ -39,20 +39,26 @@ SpottingSalmon/Video (Object Detection)
 2. Data labelling
    - Roboflow option
    - AML option
+   - Databricks option (coming soon...)
 3. Data Preperation
    - Inspect labelled datasets
 4. Object detection model training and evaluation
    - YOLOv8 model
    - YOLOv11 model
-5. Model prediction
+   - MLFlow
+5. Model inference
    - Script to use model to predict fish in new video data
+6. Model logging
+   - Log and register model in MLFlow
+7. Model serving endpoint
+   - Generate a model serving endpoint & serve through databricks apps
   
 
    
 ## Requirements
-- Databricks: Running the scripts requires a Databricks environment with access to the Datalake
+- Databricks: Running the scripts requires access to a Unity Catalog enabled workspace
 - Python version: Ensure you are using Python 3.6 and above
-- Fish videos: Make sure you have access to fish images through Datalake
+- Fish videos in Unit Catalog
 
 
 
@@ -74,13 +80,18 @@ Ingest image frames to AML datastore (contact datascience@defra.gov.uk. for assi
 
 !Note! There is an option to continue a full workflow on AML by exporting labels as a data asset and using Auto ML to generate an object detection model and executing an endpoint, though previous experience with ML models and evaluation is advised here. Contact rachel.lennon@defra.gov.uk for more details. 
 
+##### Option 3 - Databricks
+The Databricks team has made an app that can be used on databricks to label images and save directly to the lakehouse or Unity Catalog. This is currently in development but aims to be available soon for end-to-end workflow in databricks. 
+
 ### Step 4: Train model
-Open the yolo_model_training notebook and run the script to train and evaluate YOLOv8 and YOLOv11 models. 
+Open the model_training notebook and run the script to train and evaluate YOLOv8 and YOLOv11 models. 
 
 ### Step 5: Use models to predict fish
-Open the model_predict notebook to use trained model to generate fish counts from unseen videos.
+Open the model_inference notebook to use trained model to generate fish counts from unseen videos.
 
-## Next Steps 
-- Find path to  labelled files for direct access via Databricks.  
-- Generate an endpoint for use of final model through a GUI
-- Test of data labelling options within Databricks (i.e., LabelBox)
+### Step 6: Model Endpoint
+Open the model_logging notebook to log and register the model in the workspace, then using the UI to serve the model. 
+
+### Step 7: App development and deployment 
+Use databricks apps and streamlit to make your very own app!
+

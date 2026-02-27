@@ -70,7 +70,7 @@ Follow cloning instructions from the [Dash Playbook](https://dash-connect-prd.az
 Run image extraction script to extract frames from video files for use in data labelling and model training steps.
 
 ### Step 3: Bounding box labelling 
-Download extracted images to local PC and then follow either option 1 or option 2. Additional images for data labelling can be found in the repo in the fish_500.zip file. 
+Download extracted images to local PC and then follow an option for labelling.
 
 ##### Option 1 - Roboflow
 Use [Roboflow](https://roboflow.com/annotate) to generate bounding box labels around fish. It is recommended that you augment the data brightness (+/- 25%) and exposure (+/- 10%) to bolster dataset. Extract in YOLOv8 annotation format. Upload the files to Databricks File System (DBFS) using the Create > upload button and move to an appropriate directory (dbutils.fs.cp("local/path/to/labels", "dbfs:/mnt/lab/unrestricted/rachel/labels").

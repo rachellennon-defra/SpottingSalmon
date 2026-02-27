@@ -66,6 +66,7 @@ SpottingSalmon/Video (Object Detection)
 ### Step 1: Clone the repository 
 Follow cloning instructions from the [Dash Playbook](https://dash-connect-prd.azure.defra.cloud/DASH-Playbook/docs/databricks.html#github) to git clone https://github.com/Defra-Data-Science-Centre-of-Excellence/SpottingSalmon.git
 
+
 ### Step 2: Image extraction 
 Run image extraction script to extract frames from video files for use in data labelling and model training steps.
 

@@ -27,9 +27,9 @@ SpottingSalmon/Video (Object Detection)
 ├── 3. model_training.ipynb           # Python notebook for training and evaluating YOLO models
 ├── 4. model_inference                # Python notebook for using trained YOLO model to predict on raw data
 ├── 5. model_logging                  # Python notebook for logging and registering final model in MLFlow for serving endpoints
-├── dummy_data                     # File containing images of fish passing events priovided by the Environment Agency for data labelling
-├── yolo11n.pt                     # PyTorch ML model file from Ultralytics yolo version 11
-└── yolov8n.pt                     # PyTorch ML model file from Ultralytics yolo version 8
+├── dummy_data.zip                    # File containing images of fish passing events priovided by the Environment Agency for data labelling
+├── yolo11n.pt                        # PyTorch ML model file from Ultralytics yolo version 11
+└── yolov8n.pt                        # PyTorch ML model file from Ultralytics yolo version 8
 ```
 
 

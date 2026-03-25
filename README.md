@@ -8,7 +8,7 @@ This repository demonstrate a computer vision machine learning workflow using a 
 - [Requirements](#requirements)
 - [Set-up Instructions](#set-up-instructions)
 - [Next Steps](#next-steps)
-- [Acknowledgements and & contact details] (acknowledgements_&_contacts)
+- [Acknowledgements and & contact details](#acknowledgements_&_contact_details)
 
 ## Project Overview
 The research and development project was initiated to automate the monitoring of wild salmon populations as traditional monitoring methods are time-consuming, and resource intensive. The workflow includes: 

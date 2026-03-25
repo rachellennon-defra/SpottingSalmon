@@ -1,5 +1,5 @@
-# SpottingSalmon
-This repository demonstrate a computer vision machine learning workflow using a salmon dataset from the Environment Agency Knapp Mill monitoring site to train YOLO models for object detection. It covers data preprocessing, model training and evaluation, and model prediction using Databricks.
+# Using Computer Vision Approaches to Automate Wild Salmon Monitoring
+This repository demonstrate a computer vision machine learning workflow using a salmon dataset from the Environment Agency Knapp Mill monitoring site to train YOLO models for object detection. It covers data preprocessing, model training and evaluation, and front-end development and app deployment using Databricks.
 
 ## Table of Contents
 - [Project Overview](#project-overview)

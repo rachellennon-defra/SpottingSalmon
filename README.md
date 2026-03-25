@@ -9,7 +9,7 @@ This repository demonstrate a computer vision machine learning workflow using a 
 - [Workflow](#workflow)
 - [Requirements](#requirements)
 - [Set-up Instructions](#set-up-instructions)
-- [Acknowledgements and & contact details](#acknowledgements_&_contact_details)
+- [Acknowledgements and contact details](#acknowledgements-and-contact-details)
 
 ## Project Overview
 The research and development project was initiated to automate the monitoring of wild salmon populations as traditional monitoring methods are time-consuming, and resource intensive. The workflow includes: 
@@ -33,8 +33,8 @@ SpottingSalmon/Video (Object Detection)
 ├── yolo11n.pt                        # PyTorch ML model file from Ultralytics yolo version 11
 └── yolov8n.pt                        # PyTorch ML model file from Ultralytics yolo version 8
 ```
-
-
+Note: Dummy data is provided for training demonstrations only and is not open data.
+Dummy data has been provided by the Environment Agency, taken as still images from salmon monitoring videos recorded at EA monitoring site in July 2021. Images display an over-head view of monitoring channel, small passages that salmon pass through when migrating through a river. These images can be used to generate training data for computer vision models. 
 
 ## Workflow
 1. Image extraction 
@@ -62,8 +62,6 @@ SpottingSalmon/Video (Object Detection)
 - Databricks: Running the scripts requires access to a Unity Catalog enabled workspace
 - Python version: Ensure you are using Python 3.6 and above
 - Fish videos from dummy data
-
-Dummy data has been provided by the Environment Agency, taken as still images from salmon monitoring videos recorded at EA monitoring site in July 2021. Images display an over-head view of monitoring channel, small passages that salmon pass through when migrating through a river. These images can be used to generate training data for computer vision models. 
 
 
 
@@ -103,7 +101,7 @@ Use databricks apps and streamlit to make your very own app!
 
 
 
-## Acknowledgements & contact details
+## Acknowledgements and contact details
 Data is provided by and the project is owned by the Environment Agency (contact Adrian Fewings - adrian.fewings@environment-agency.gov.uk). All data science and code conducted by Department for Environment, Food and Rural Affairs Data Analytics and Science Hub team (contact Rachel Lennon - rachelllennon@hotmail.com; Isaac Arhinful - Isaac.Arhinful@defra.gov.uk).
 
 ![dash_wide_logo](https://github.com/user-attachments/assets/4ea7b5ee-b8e7-4be1-aded-c1760abbe6ba)

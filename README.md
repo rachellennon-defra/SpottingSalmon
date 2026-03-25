@@ -8,6 +8,7 @@ This repository demonstrate a computer vision machine learning workflow using a 
 - [Requirements](#requirements)
 - [Set-up Instructions](#set-up-instructions)
 - [Next Steps](#next-steps)
+- [Acknowledgements and & contact details] (acknowledgements_&_contacts)
 
 ## Project Overview
 The research and development project was initiated to automate the monitoring of wild salmon populations as traditional monitoring methods are time-consuming, and resource intensive. The workflow includes: 
@@ -97,3 +98,7 @@ Open the model_logging notebook to log and register the model in the workspace, 
 ### Step 7: App development and deployment 
 Use databricks apps and streamlit to make your very own app!
 
+
+
+## Acknowledgements & contact details
+Data is provided by and the project is owned by the Environment Agency (contact). Data science conducted by Department for Environment, Food and Rural Affairs Data Analytics and Science Hub team (contact).

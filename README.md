@@ -1,5 +1,7 @@
 # Using Computer Vision Approaches to Automate Wild Salmon Monitoring
-This repository demonstrate a computer vision machine learning workflow using a salmon dataset from the Environment Agency Knapp Mill monitoring site to train YOLO models for object detection. It covers data preprocessing, model training and evaluation, and front-end development and app deployment using Databricks.
+This repository demonstrate a computer vision machine learning workflow using a salmon dataset from the Environment Agency (EA) monitoring site to train YOLO models for object detection. It covers data preprocessing, model training and evaluation, and front-end development and app deployment using Databricks.
+
+<img width="654" height="395" alt="fish detection 0 91" src="https://github.com/user-attachments/assets/786a1bdd-0678-4e97-a621-8cf55ebe7862" />
 
 ## Table of Contents
 - [Project Overview](#project-overview)
@@ -7,7 +9,6 @@ This repository demonstrate a computer vision machine learning workflow using a 
 - [Workflow](#workflow)
 - [Requirements](#requirements)
 - [Set-up Instructions](#set-up-instructions)
-- [Next Steps](#next-steps)
 - [Acknowledgements and & contact details](#acknowledgements_&_contact_details)
 
 ## Project Overview
@@ -60,7 +61,9 @@ SpottingSalmon/Video (Object Detection)
 ## Requirements
 - Databricks: Running the scripts requires access to a Unity Catalog enabled workspace
 - Python version: Ensure you are using Python 3.6 and above
-- Fish videos in Unit Catalog
+- Fish videos from dummy data
+
+Dummy data has been provided by the Environment Agency, taken as still images from salmon monitoring videos recorded at EA monitoring site in July 2021. Images display an over-head view of monitoring channel, small passages that salmon pass through when migrating through a river. These images can be used to generate training data for computer vision models. 
 
 
 
@@ -101,4 +104,9 @@ Use databricks apps and streamlit to make your very own app!
 
 
 ## Acknowledgements & contact details
-Data is provided by and the project is owned by the Environment Agency (contact). Data science conducted by Department for Environment, Food and Rural Affairs Data Analytics and Science Hub team (contact).
+Data is provided by and the project is owned by the Environment Agency (contact Adrian Fewings - adrian.fewings@environment-agency.gov.uk). All data science and code conducted by Department for Environment, Food and Rural Affairs Data Analytics and Science Hub team (contact Rachel Lennon - rachelllennon@hotmail.com; Isaac Arhinful - Isaac.Arhinful@defra.gov.uk).
+
+![dash_wide_logo](https://github.com/user-attachments/assets/4ea7b5ee-b8e7-4be1-aded-c1760abbe6ba)
+<img width="500" height="261" alt="Department_for_Environment,_Food_and_Rural_Affairs_logo svg" src="https://github.com/user-attachments/assets/a8ee14d5-c582-4e10-98e6-cc00e9125518" />
+![EA-logo](https://github.com/user-attachments/assets/4c24c169-68cb-4205-82b3-a8726f61b58c)
+

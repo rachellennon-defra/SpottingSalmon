@@ -102,7 +102,14 @@ Use databricks apps and streamlit to make your very own app!
 
 
 ## Acknowledgements and contact details
-Data is provided by and the project is owned by the Environment Agency (contact Adrian Fewings - adrian.fewings@environment-agency.gov.uk). All data science and code conducted by Department for Environment, Food and Rural Affairs Data Analytics and Science Hub team (contact Rachel Lennon - rachelllennon@hotmail.com; Isaac Arhinful - Isaac.Arhinful@defra.gov.uk).
+Data is provided by and the project is owned by the Environment Agency. All data science and code conducted by Department for Environment, Food and Rural Affairs Data Analytics and Science Hub team.
+
+### Contacts
+- General technical: DASH data science team - datascience@mailshot.defra.gov.uk
+- Project owner & developer: Rachel Lennon (DASH) - rachelllennon@hotmail.com
+- AI Technical: Isaac Arhinful (DASH) - Isaac.Arhinful@defra.gov.uk
+- Future developments: Margarita Tsakiridou (DASH) - margarita.tsakiridou@defra.gov.uk
+- Application and use: Adrian Fewings (Environment Agency) - adrian.fewings@environment-agency.gov.uk
 
 ![dash_wide_logo](https://github.com/user-attachments/assets/4ea7b5ee-b8e7-4be1-aded-c1760abbe6ba)
 <img width="500" height="261" alt="Department_for_Environment,_Food_and_Rural_Affairs_logo svg" src="https://github.com/user-attachments/assets/a8ee14d5-c582-4e10-98e6-cc00e9125518" />

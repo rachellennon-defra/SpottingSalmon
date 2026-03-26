@@ -1,0 +1,9 @@
+streamlit==1.54.0
+pandas>=2.2
+numpy>=1.26
+pillow>=10.0
+databricks-sdk>=0.33.0
+pyarrow
+protobuf
+requests
+databricks-sql-connector

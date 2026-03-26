@@ -93,8 +93,7 @@ if st.button("Save upload"):
 
         # UC folder - CHANGE
         dest_folder = (
-            "/Volumes/prd_dash_lab/dash_data_science_unrestricted/"
-            "shared_external_volume/YOUR_PATH/"
+            "YOUR/PATH"
             f"{file_name.replace('.zip','')}"
         )
 

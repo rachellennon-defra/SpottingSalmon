@@ -71,9 +71,10 @@ Dummy data has been provided by the Environment Agency, taken as still images fr
 ## Requirements
 - Databricks: Running the scripts requires access to a Unity Catalog enabled workspace
 - Python version: Ensure you are using Python 3.6 and above
-- Fish videos from dummy data
+- Fish images from dummy data
 
-
+### Data
+This workflow assumes you have access to a zip files of fish video monitoring files in an .mp4 format. If you do not have access to this then you can use the dummy_data which contains pre-extracted images in the format .jpeg, and start from script 2 (i.e., ignoring Image Extraction step). 
 
 ## Set-up Instructions
 ### Step 1: Clone the repository 

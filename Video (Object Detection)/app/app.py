@@ -91,10 +91,10 @@ if st.button("Save upload"):
 
         zf = zipfile.ZipFile(io.BytesIO(file_bytes))
 
-        # UC folder
+        # UC folder - CHANGE
         dest_folder = (
             "/Volumes/prd_dash_lab/dash_data_science_unrestricted/"
-            "shared_external_volume/rachels_stuff/"
+            "shared_external_volume/YOUR_PATH/"
             f"{file_name.replace('.zip','')}"
         )
 

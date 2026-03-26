@@ -14,7 +14,9 @@ This repository demonstrate a computer vision machine learning workflow using a 
 ## Project Overview
 The research and development project was initiated to automate the monitoring of wild salmon populations as traditional monitoring methods are time-consuming, and resource intensive. The workflow includes: 
 - Data preprocessing and visualisation using the salmon dataset
-- Training and evaluating object detection models using Ultralytics
+- Training and evaluating object detection models using Ultralytics in Databricks
+- Logging and registering model using ML flow in Databricks
+- Generating a streamlit app in Databricks using Databricks Apps
 
 
 
@@ -31,7 +33,13 @@ SpottingSalmon/Video (Object Detection)
 ├── 5. model_logging                  # Python notebook for logging and registering final model in MLFlow for serving endpoints
 ├── dummy_data.zip                    # File containing images of fish passing events priovided by the Environment Agency for data labelling
 ├── yolo11n.pt                        # PyTorch ML model file from Ultralytics yolo version 11
-└── yolov8n.pt                        # PyTorch ML model file from Ultralytics yolo version 8
+├── yolov8n.pt                        # PyTorch ML model file from Ultralytics yolo version 8
+│
+└── app/                          
+    ├── app.py                        # Python file for steamlit app backend
+    ├── app.yaml                      # YAML file for app set up via databricks apps
+    └── requirements.txt              # Text file for package requirements for databricks app
+
 ```
 Note: Dummy data is provided for training demonstrations only and is not open data.
 Dummy data has been provided by the Environment Agency, taken as still images from salmon monitoring videos recorded at EA monitoring site in July 2021. Images display an over-head view of monitoring channel, small passages that salmon pass through when migrating through a river. These images can be used to generate training data for computer vision models. 
@@ -54,7 +62,9 @@ Dummy data has been provided by the Environment Agency, taken as still images fr
 6. Model logging
    - Log and register model in MLFlow
 7. Model serving endpoint
-   - Generate a model serving endpoint & serve through databricks apps
+   - Generate a model serving endpoint using endpoint GUI
+8. Generate and deploy Databricks App
+   - Use app script to generate a streamlit app and deploy through Databricks app GUI
   
 
    
@@ -94,11 +104,10 @@ Open the model_training notebook and run the script to train and evaluate YOLOv8
 Open the model_inference notebook to use trained model to generate fish counts from unseen videos.
 
 ### Step 6: Model Endpoint
-Open the model_logging notebook to log and register the model in the workspace, then using the UI to serve the model. 
+Open the model_logging notebook to log and register the model in the workspace, then use the databricks GUI to serve the model (https://docs.databricks.com/aws/en/machine-learning/model-serving/create-manage-serving-endpoints) 
 
 ### Step 7: App development and deployment 
-Use databricks apps and streamlit to make your very own app!
-
+Use the Databricks App GUI and the app.py, app.yaml and requirements.txt in /app folder to deploy your own streamlit app using the model endpoint (https://www.databricks.com/product/databricks-apps)
 
 
 ## Acknowledgements and contact details
